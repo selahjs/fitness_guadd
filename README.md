@@ -54,7 +54,7 @@ This bot aims to solve the problem of finding relevant Ethiopian Telegram commun
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ethiopian-telegram-communities-bot.git
+git clone https://github.com/selahjs/fitness_guadd.git
 cd ethiopian-telegram-communities-bot
 
 # Set up a virtual environment
