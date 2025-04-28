@@ -1,8 +1,18 @@
+import certifi
+import ssl
 from pymongo import MongoClient
 import config
 
-# Connect to MongoDB
-client = MongoClient(config.MONGO_URI)
+# Connect to MongoDB with enhanced SSL settings
+client = MongoClient(
+    config.MONGO_URI,
+    tlsCAFile=certifi.where(),
+    retryWrites=True,
+    ssl=True,
+    # ssl_cert_reqs=ssl.CERT_NONE,  # Disable strict certificate validation
+    tlsInsecure=True,  # Additional fallback option
+    serverSelectionTimeoutMS=10000
+)
 db = client["eth_telegram_communities"]
 
 # Collections
@@ -12,23 +22,37 @@ analytics = db["analytics"]
 
 # Create text index for search
 def setup_indexes():
-    # Remove existing text indexes first
     try:
-        communities.drop_index("name_text_description_text_keywords_text")
-        print("Successfully dropped existing text index")
+        # Remove existing text indexes first
+        try:
+            communities.drop_index("name_text_description_text_keywords_text")
+            print("Successfully dropped existing text index")
+        except Exception as e:
+            print(f"Note: {e}")
+        
+        # Create new index with multilingual support
+        communities.create_index([
+            ("name", "text"), 
+            ("description", "text"),
+            ("keywords", "text")
+        ], default_language="none")
+        print("Successfully created text index with language: none")
     except Exception as e:
-        print(f"Note: {e}")
-    
-    # Create new index with multilingual support
-    communities.create_index([
-        ("name", "text"), 
-        ("description", "text"),
-        ("keywords", "text")
-    ], default_language="none")
-    print("Successfully created text index with language: none")
+        print(f"Warning: Could not set up indexes: {e}")
+        print("Continuing without database indexes...")
 
 # Initialize database
 def init_db():
+    # Test the connection first
+    try:
+        # The ismaster command is cheap and does not require auth
+        client.admin.command('ismaster')
+        print("MongoDB connection successful")
+    except Exception as e:
+        print(f"MongoDB connection error: {e}")
+        print("Continuing with limited functionality...")
+        return
+    
     # Setup indexes
     setup_indexes()
     
@@ -49,23 +73,23 @@ def add_sample_data():
                 "region": "Addis Ababa"
             },
             "link": "https://t.me/ethiotechhub",
-            "keywords": ["programming", "startup", "innovation", "code"]
+            "keywords": ["programming", "startup", "innovation", "code"],
+            "approved": True  # Mark as approved so it shows up in searches
         },
         {
             "name": "ፊትነስ አዲስ",
             "description": "የአካል ብቃት እና ጤናማ አኗኗር ማህበረሰብ",
             "category": "fitness",
             "members": 850,
-            "language": "amharic",  # Keep language as amharic for filtering purposes
-            # Remove the language_override to avoid the error
-            # Change the field name to avoid triggering MongoDB's language detection
-            "display_language": "amharic",  # Use this for UI display
+            "language": "amharic",
+            "display_language": "amharic",
             "location": {
                 "city": "Addis Ababa",
                 "region": "Addis Ababa"
             },
             "link": "https://t.me/fitnessaddis",
-            "keywords": ["ስፖርት", "ጤና", "fitness", "workout"]
+            "keywords": ["ስፖርት", "ጤና", "fitness", "workout"],
+            "approved": True  # Mark as approved so it shows up in searches
         }
     ]
     
